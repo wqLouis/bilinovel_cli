@@ -60,6 +60,8 @@ def create_parser() -> argparse.ArgumentParser:
     catalog_parser = subparsers.add_parser("catalog", help="Show novel catalog")
     catalog_parser.add_argument("novel_id", type=int, help="Novel ID from bilinovel")
 
+    subparsers.add_parser("config", help="Configure browser and settings")
+
     return parser
 
 
@@ -87,6 +89,8 @@ def run(args: Optional[list] = None) -> int:
             return _run_info(console, parsed)
         elif parsed.command == "catalog":
             return _run_catalog(console, parsed)
+        elif parsed.command == "config":
+            return _run_config(console)
         else:
             console.print_error(f"Unknown command: {parsed.command}")
             return 1
@@ -206,4 +210,21 @@ def _run_catalog(console: ConsoleProgress, args: argparse.Namespace) -> int:
 
     formatter = NovelFormatter()
     console.print(formatter.format_catalog(volumes))
+    return 0
+
+
+def _run_config(console: ConsoleProgress) -> int:
+    from bilinovel_cli.cli.browser_selector import BrowserSelector
+    from bilinovel_cli.cli.config_manager import load_config, save_config
+
+    config = load_config()
+    selector = BrowserSelector(console.console)
+    selected_browser, to_uninstall = selector.run(config.browser.type)
+
+    if selected_browser is None:
+        console.print_info("Configuration unchanged")
+        return 0
+
+    config.browser.type = selected_browser
+    save_config(config)
     return 0

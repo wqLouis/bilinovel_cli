@@ -34,7 +34,9 @@ class Fetcher:
     def _ensure_page(self):
         if self._page is None:
             self._playwright = sync_playwright().__enter__()
-            self._browser = self._playwright.chromium.launch(
+            browser_type = self._get_browser_type()
+            browser_launcher = getattr(self._playwright, browser_type)
+            self._browser = browser_launcher.launch(
                 headless=True,
                 args=[
                     "--disable-blink-features=AutomationControlled",
@@ -55,6 +57,14 @@ class Fetcher:
             self._page = self._context.new_page()
             self._page.set_default_timeout(GOTO_TIMEOUT)
         return self._page
+
+    def _get_browser_type(self) -> str:
+        try:
+            from bilinovel_cli.cli.config_manager import load_config
+
+            return load_config().browser.type
+        except Exception:
+            return "chromium"
 
     def _prepare_novel_page(self, page, novel_id: str):
         main_page = f"{self.BASE_URL}/novel/{novel_id}.html"
