@@ -34,7 +34,7 @@ class Fetcher:
     def _ensure_page(self):
         if self._page is None:
             self._playwright = sync_playwright().__enter__()
-            browser_type = self._get_browser_type()
+            browser_type, launch_kwargs = self._get_browser_config()
             browser_launcher = getattr(self._playwright, browser_type)
             self._browser = browser_launcher.launch(
                 headless=True,
@@ -45,6 +45,7 @@ class Fetcher:
                     "--disable-setuid-sandbox",
                     "--disable-web-security",
                 ],
+                **launch_kwargs,
             )
             stealth = Stealth()
             stealth._reassign_new_page_new_context(self._browser)
@@ -58,13 +59,16 @@ class Fetcher:
             self._page.set_default_timeout(GOTO_TIMEOUT)
         return self._page
 
-    def _get_browser_type(self) -> str:
+    def _get_browser_config(self) -> tuple:
         try:
             from bilinovel_cli.cli.config_manager import load_config
 
-            return load_config().browser.type
+            config = load_config().browser
+            if config.source == "system" and config.executable_path:
+                return ("chromium", {"executable_path": config.executable_path})
+            return (config.type, {})
         except Exception:
-            return "chromium"
+            return ("chromium", {})
 
     def _prepare_novel_page(self, page, novel_id: str):
         main_page = f"{self.BASE_URL}/novel/{novel_id}.html"

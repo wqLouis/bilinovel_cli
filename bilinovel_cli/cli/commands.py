@@ -219,12 +219,17 @@ def _run_config(console: ConsoleProgress) -> int:
 
     config = load_config()
     selector = BrowserSelector(console.console)
-    selected_browser, to_uninstall = selector.run(config.browser.type)
+    browser_type, source, executable_path, _ = selector.run(
+        config.browser.type, config.browser.source
+    )
 
-    if selected_browser is None:
+    if browser_type is None:
         console.print_info("Configuration unchanged")
         return 0
 
-    config.browser.type = selected_browser
+    config.browser.type = browser_type
+    config.browser.source = source
+    config.browser.executable_path = executable_path
     save_config(config)
+    console.print_success(f"Browser set to {source}:{browser_type}")
     return 0

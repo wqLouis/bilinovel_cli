@@ -1,5 +1,6 @@
 """Configuration management for bilinovel-cli."""
 
+import shutil
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -8,12 +9,19 @@ import tomllib
 
 CONFIG_DIR = Path.home() / ".config" / "bilinovel-cli"
 CONFIG_FILE = CONFIG_DIR / "config.toml"
-BROWSER_TYPES = ["chromium", "firefox", "webkit"]
+PLAYWRIGHT_BROWSERS = ["chromium", "firefox", "webkit"]
+SYSTEM_BROWSERS = [
+    ("chromium", "/usr/bin/chromium"),
+    ("firefox", "/usr/bin/firefox"),
+    ("chrome", "/usr/bin/google-chrome"),
+]
 
 
 @dataclass
 class BrowserConfig:
     type: str = "chromium"
+    source: str = "playwright"
+    executable_path: str = None
 
 
 @dataclass
@@ -30,7 +38,12 @@ def load_config() -> Config:
         return Config()
     with open(CONFIG_FILE, "rb") as f:
         data = tomllib.load(f)
-    browser_cfg = BrowserConfig(type=data.get("browser", {}).get("type", "chromium"))
+    browser_data = data.get("browser", {})
+    browser_cfg = BrowserConfig(
+        type=browser_data.get("type", "chromium"),
+        source=browser_data.get("source", "playwright"),
+        executable_path=browser_data.get("executable_path"),
+    )
     return Config(browser=browser_cfg)
 
 
@@ -40,6 +53,9 @@ def save_config(config: Config):
         f.write("# bilinovel-cli configuration\n\n")
         f.write(f"[browser]\n")
         f.write(f'type = "{config.browser.type}"\n')
+        f.write(f'source = "{config.browser.source}"\n')
+        if config.browser.executable_path:
+            f.write(f'executable_path = "{config.browser.executable_path}"\n')
 
 
 def get_installed_browsers() -> list[str]:
@@ -51,10 +67,18 @@ def get_installed_browsers() -> list[str]:
         text=True,
     )
     installed = []
-    for browser in BROWSER_TYPES:
+    for browser in PLAYWRIGHT_BROWSERS:
         if browser in result.stdout:
             installed.append(browser)
     return installed
+
+
+def get_system_browsers() -> list[tuple[str, str, bool]]:
+    results = []
+    for name, path in SYSTEM_BROWSERS:
+        found = shutil.which(path) is not None
+        results.append((name, path, found))
+    return results
 
 
 def install_browser(browser: str, progress_callback=None) -> bool:
@@ -74,11 +98,11 @@ def install_browser(browser: str, progress_callback=None) -> bool:
     return proc.returncode == 0
 
 
-def uninstall_browser(browser: str) -> bool:
+def uninstall_browsers() -> bool:
     import subprocess
 
     result = subprocess.run(
-        ["playwright", "uninstall", browser],
+        ["playwright", "uninstall"],
         capture_output=True,
         text=True,
     )

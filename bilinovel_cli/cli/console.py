@@ -3,8 +3,15 @@
 from typing import Optional
 
 from rich.console import Console
-from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn
-from rich.progress import TaskProgressColumn
+from rich.progress import (
+    Progress,
+    SpinnerColumn,
+    TextColumn,
+    BarColumn,
+    TaskProgressColumn,
+    TimeElapsedColumn,
+    TimeRemainingColumn,
+)
 
 
 class ConsoleProgress:
@@ -37,6 +44,8 @@ class ConsoleProgress:
             TextColumn("[bold blue]{task.description}"),
             BarColumn(),
             TaskProgressColumn(),
+            TimeElapsedColumn(),
+            TimeRemainingColumn(),
             console=self.console,
         )
         self.progress.start()
