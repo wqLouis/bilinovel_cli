@@ -1,55 +1,57 @@
 # bilinovel-cli
 
-A CLI tool for scraping novels from bilinovel (哔哩轻小说).
+哔哩轻小说命令行下载工具。
 
-## Install
+[English](./README_en.md)
+
+## 安装
 
 ```bash
-# Install playwright browsers
+# 安装 playwright 浏览器
 playwright install chromium
 ```
 
-## Usage
+## 使用方法
 
 ```bash
-# Show novel info
+# 查看小说信息
 bilinovel info <novel_id>
 
-# Show catalog
+# 查看目录
 bilinovel catalog <novel_id>
 
-# Download novel (interactive volume selection)
+# 下载小说（交互式选择卷）
 bilinovel download <novel_id>
 
-# Download specific volumes
+# 下载指定卷
 bilinovel download <novel_id> -v 0 1 2
 
-# Download with interval delay (seconds)
+# 设置请求间隔（秒）
 bilinovel download <novel_id> -i 1.0
 
-# Download to custom output dir
+# 指定输出目录
 bilinovel download <novel_id> -o ./novels
 ```
 
-## Run Without Installing
+## 免安装运行
 
 ```bash
 uv run python main.py <command>
 ```
 
-## Output
+## 输出格式
 
-Novels are saved as per-chapter .txt files organized in volume folders.
-
-## Acknowledgments
-
-- [bilinovel-download](https://github.com/ShqWW/bilinovel-download/tree/master) - for the rubbish_secret_map character mapping data
+小说以每章一个 .txt 文件的方式保存，按卷分组。
 
 ```
-novel_title/
-├── volume_title_1/
+小说标题/
+├── 卷标题_1/
 │   ├── Chapter 1.txt
 │   └── Chapter 2.txt
-└── volume_title_2/
+└── 卷标题_2/
     └── Chapter 1.txt
 ```
+
+## 致谢
+
+- [bilinovel-download](https://github.com/ShqWW/bilinovel-download/tree/master) - 提供了 rubbish_secret_map 字符映射数据
