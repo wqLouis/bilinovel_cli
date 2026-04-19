@@ -132,12 +132,7 @@ class Parser:
         return content
 
     def parse_chapter_pages(self, pages: list[str]) -> str:
-        contents = []
-        for page_content in pages:
-            content = self.parse_chapter_content(page_content)
-            if content:
-                contents.append(content)
-        full_content = "\n".join(contents)
+        full_content = "\n\n".join(pages)
         full_content = self.replace_rubbish_text(full_content)
         full_content = self.clean_content(full_content)
         return full_content

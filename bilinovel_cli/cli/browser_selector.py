@@ -34,12 +34,12 @@ class BrowserSelector:
         self._cursor: int = 0
         self._selected_name: Optional[str] = None
         self._selected_source: str = "playwright"
-        self._to_uninstall: list[str] = []
+        self._will_uninstall_all: bool = False
         self._install_progress: Optional[str] = None
 
     def run(
         self, current_browser: str, current_source: str
-    ) -> tuple[str, str, str, list[str]]:
+    ) -> tuple[str, str, str, bool]:
         self._parse_current(current_browser, current_source)
         self._refresh_status()
 
@@ -111,15 +111,10 @@ class BrowserSelector:
             return (None, "playwright", None)
 
     def _mark_uninstall(self):
-        if not self._is_playwright_section(self._cursor):
-            return
-        idx = self._get_playwright_index(self._cursor)
-        browser = PLAYWRIGHT_BROWSERS[idx]
-        if browser in self._playwright_installed and browser not in self._to_uninstall:
-            self._to_uninstall.append(browser)
+        self._will_uninstall_all = True
 
     def _cancel_uninstall(self):
-        self._to_uninstall = []
+        self._will_uninstall_all = False
 
     def _start_install(self, live):
         name, source, _ = self._get_item_at_cursor()
@@ -142,19 +137,19 @@ class BrowserSelector:
 
     def _get_selection(self) -> tuple:
         if not self._selected_name:
-            return (None, "playwright", None, self._to_uninstall)
+            return (None, "playwright", None, self._will_uninstall_all)
 
         if self._selected_source == "playwright":
-            return (self._selected_name, "playwright", None, self._to_uninstall)
+            return (self._selected_name, "playwright", None, self._will_uninstall_all)
 
         for i, (name, path, found) in enumerate(self._system_browsers):
             if name == self._selected_name:
-                return (name, "system", path, self._to_uninstall)
+                return (name, "system", path, self._will_uninstall_all)
 
-        return (None, "playwright", None, self._to_uninstall)
+        return (None, "playwright", None, self._will_uninstall_all)
 
     def _uninstall_pending(self):
-        if self._to_uninstall:
+        if self._will_uninstall_all:
             uninstall_browsers()
 
     def _build_renderable(self):
@@ -221,10 +216,10 @@ class BrowserSelector:
             )
             lines.append("")
 
-        if self._to_uninstall:
+        if self._will_uninstall_all:
             lines.append(
                 Text.from_markup(
-                    f"[red]To uninstall: {', '.join(self._to_uninstall)}[/red]",
+                    "[red]Will uninstall all browsers on quit[/red]",
                     justify="center",
                 )
             )

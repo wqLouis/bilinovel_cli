@@ -1,7 +1,7 @@
 """Page fetching via playwright with stealth mode and Cloudflare handling."""
 
+import random
 import time
-import re
 
 from playwright.sync_api import sync_playwright
 from playwright_stealth import Stealth
@@ -148,19 +148,42 @@ class Fetcher:
     def fetch_chapter_pages(self, url: str) -> list[str]:
         page = self._ensure_page()
         self.fetch(url)
-        html = page.content()
-        pages = [html]
-        path = url[len(self.BASE_URL) :] if url.startswith(self.BASE_URL) else url
-        page_no = 1
+
+        def extract():
+            selectors = "['#acontent', '#acontentl', '.acontent', '.bcontent']"
+            js = (
+                "(function(){var s="
+                + selectors
+                + ";var d=null;for(var i=0;i<s.length;i++){d=document.querySelector(s[i]);if(d)break}"
+                ";if(!d)return'';var v=[];var seen=new Set();var allP=d.querySelectorAll('p');"
+                "for(var j=0;j<allP.length;j++){var el=allP[j];var hasK=false;"
+                "for(var k=0;k<el.attributes.length;k++){if(el.attributes[k].name.indexOf('data-k')===0){hasK=true;break}}"
+                "if(hasK){var t=window.getComputedStyle(el).transform;"
+                "if(t!=='matrix(0, 0, 0, 0, 0, 0)'){var txt=el.textContent.trim();if(txt&&!seen.has(txt)){seen.add(txt);v.push(txt)}}}}"
+                "return v.join('\\n\\n')})()"
+            )
+
+            page.wait_for_load_state("domcontentloaded")
+            page.wait_for_timeout(0.5)
+
+            for _ in range(5):
+                result = page.evaluate(js)
+                if result and len(result) > 10:
+                    return result
+                page.wait_for_timeout(random.uniform(0.2, 0.5))
+
+            return ""
+
+        pages = [extract()]
 
         while True:
-            next_path = re.sub(r"\.html$", f"_{page_no + 1}.html", path)
-            if next_path not in html:
+            next_btn = page.locator('div#footlink a:has-text("下一頁")')
+            if next_btn.count() == 0:
                 break
-            page_no += 1
-            self.fetch(f"{self.BASE_URL}{next_path}")
-            html = page.content()
-            pages.append(html)
+            next_url = page.evaluate("ReadParams.url_next")
+            page.goto(next_url, wait_until="domcontentloaded")
+            page.wait_for_timeout(random.uniform(0.3, 0.5))
+            pages.append(extract())
 
         return pages
 
