@@ -6,15 +6,12 @@ from pathlib import Path
 from bilinovel_cli.core.parser import ChapterData, NovelData, VolumeData
 
 
+_ILLEGAL_CHARS = '?*"<>|:/'
+_CHAR_TRANSLATION = str.maketrans({c: "\u25a0" for c in _ILLEGAL_CHARS})
+
+
 def check_chars(name: str) -> str:
-    illegal_chars = '?*"<>|:/'
-    result = ""
-    for char in name:
-        if char in illegal_chars:
-            result += "\u25a0"
-        else:
-            result += char
-    return result
+    return name.translate(_CHAR_TRANSLATION)
 
 
 class Storage:

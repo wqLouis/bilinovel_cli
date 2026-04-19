@@ -11,6 +11,19 @@ CLOUDFLARE_TITLE = "Access denied"
 GOTO_TIMEOUT = 30000
 CLOUDCARE_WAIT = 5
 RETRY_WAIT = 2
+CONTENT_SELECTORS = "['#acontent', '#acontentl', '.acontent', '.bcontent']"
+
+EXTRACT_CONTENT_JS = (
+    "(function(){var s="
+    + CONTENT_SELECTORS
+    + ";var d=null;for(var i=0;i<s.length;i++){d=document.querySelector(s[i]);if(d)break}"
+    ";if(!d)return'';var v=[];var seen=new Set();var allP=d.querySelectorAll('p');"
+    "for(var j=0;j<allP.length;j++){var el=allP[j];var hasK=false;"
+    "for(var k=0;k<el.attributes.length;k++){if(el.attributes[k].name.indexOf('data-k')===0){hasK=true;break}}"
+    "if(hasK){var t=window.getComputedStyle(el).transform;"
+    "if(t!=='matrix(0, 0, 0, 0, 0, 0)'){var txt=el.textContent.trim();if(txt&&!seen.has(txt)){seen.add(txt);v.push(txt)}}}}"
+    "return v.join('\\n\\n')})()"
+)
 
 
 class Fetcher:
@@ -149,54 +162,43 @@ class Fetcher:
         page = self._ensure_page()
         self.fetch(url)
 
-        def extract():
-            selectors = "['#acontent', '#acontentl', '.acontent', '.bcontent']"
-            js = (
-                "(function(){var s="
-                + selectors
-                + ";var d=null;for(var i=0;i<s.length;i++){d=document.querySelector(s[i]);if(d)break}"
-                ";if(!d)return'';var v=[];var seen=new Set();var allP=d.querySelectorAll('p');"
-                "for(var j=0;j<allP.length;j++){var el=allP[j];var hasK=false;"
-                "for(var k=0;k<el.attributes.length;k++){if(el.attributes[k].name.indexOf('data-k')===0){hasK=true;break}}"
-                "if(hasK){var t=window.getComputedStyle(el).transform;"
-                "if(t!=='matrix(0, 0, 0, 0, 0, 0)'){var txt=el.textContent.trim();if(txt&&!seen.has(txt)){seen.add(txt);v.push(txt)}}}}"
-                "return v.join('\\n\\n')})()"
-            )
-
-            page.wait_for_load_state("domcontentloaded")
-            page.wait_for_timeout(1.0)
-
-            for _ in range(5):
-                result = page.evaluate(js)
-                if result and len(result) > 10:
-                    return result
-                page.wait_for_timeout(random.uniform(0.5, 1.0))
-
-            return ""
-
-        pages = [extract()]
-
-        while True:
-            next_btn = page.locator('div#footlink a:has-text("下一頁")')
-            if next_btn.count() == 0:
-                break
-            next_url = page.evaluate("ReadParams.url_next")
-            if not next_url.startswith("http"):
-                next_url = f"{self.BASE_URL}{next_url}"
-
+        pages = [self._extract_page_content(page)]
+        while self._has_next_page(page):
+            next_url = self._get_next_page_url(page)
             page.goto(next_url, wait_until="domcontentloaded", timeout=GOTO_TIMEOUT)
             page.wait_for_timeout(random.uniform(0.5, 1.0))
-
-            if CLOUDFLARE_TITLE in page.title():
-                time.sleep(CLOUDCARE_WAIT)
-                page.reload(wait_until="domcontentloaded", timeout=GOTO_TIMEOUT)
-                page.wait_for_timeout(random.uniform(0.5, 1.0))
-                if CLOUDFLARE_TITLE in page.title():
-                    break
-
-            pages.append(extract())
+            if self._handle_cloudflare(page):
+                break
+            pages.append(self._extract_page_content(page))
 
         return pages
+
+    def _extract_page_content(self, page) -> str:
+        page.wait_for_load_state("domcontentloaded")
+        page.wait_for_timeout(1.0)
+        for _ in range(5):
+            result = page.evaluate(EXTRACT_CONTENT_JS)
+            if result and len(result) > 10:
+                return result
+            page.wait_for_timeout(random.uniform(0.5, 1.0))
+        return ""
+
+    def _has_next_page(self, page) -> bool:
+        return page.locator('div#footlink a:has-text("下一頁")').count() > 0
+
+    def _get_next_page_url(self, page) -> str:
+        next_url = page.evaluate("ReadParams.url_next")
+        if not next_url.startswith("http"):
+            next_url = f"{self.BASE_URL}{next_url}"
+        return next_url
+
+    def _handle_cloudflare(self, page) -> bool:
+        if CLOUDFLARE_TITLE not in page.title():
+            return False
+        time.sleep(CLOUDCARE_WAIT)
+        page.reload(wait_until="domcontentloaded", timeout=GOTO_TIMEOUT)
+        page.wait_for_timeout(random.uniform(0.5, 1.0))
+        return CLOUDFLARE_TITLE in page.title()
 
     @staticmethod
     def check_url(url: str) -> bool:

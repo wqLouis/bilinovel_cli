@@ -152,7 +152,21 @@ class BrowserSelector:
         if self._will_uninstall_all:
             uninstall_browsers()
 
-    def _build_renderable(self):
+    def _build_renderable(self) -> Group:
+        lines = [
+            self._build_table(),
+            "",
+            self._build_status_text(),
+            "",
+        ]
+        if self._install_progress:
+            lines.append(self._build_install_progress())
+        if self._will_uninstall_all:
+            lines.append(self._build_uninstall_warning())
+        lines.append(self._build_help_text())
+        return Group(*lines)
+
+    def _build_table(self) -> Table:
         table = Table(box=None, show_header=False, pad_edge=False)
         table.add_column("Browser", style="cyan")
         table.add_column("Status", style="magenta")
@@ -160,10 +174,10 @@ class BrowserSelector:
         table.add_row("[bold]Playwright[/bold]", "")
         for i, browser in enumerate(PLAYWRIGHT_BROWSERS):
             row_idx = i + 1
-            is_selected = (
+            is_sel = (
                 browser == self._selected_name and self._selected_source == "playwright"
             )
-            prefix = self._get_prefix(row_idx, is_selected)
+            prefix = self._get_prefix(row_idx, is_sel)
             installed = browser in self._playwright_installed
             status = (
                 "[green]Installed[/green]" if installed else "[red]Not Installed[/red]"
@@ -174,13 +188,13 @@ class BrowserSelector:
         system_start = len(PLAYWRIGHT_BROWSERS) + 2
         for i, (name, path, found) in enumerate(self._system_browsers):
             row_idx = system_start + i
-            is_selected = (
-                name == self._selected_name and self._selected_source == "system"
-            )
-            prefix = self._get_prefix(row_idx, is_selected)
+            is_sel = name == self._selected_name and self._selected_source == "system"
+            prefix = self._get_prefix(row_idx, is_sel)
             status = "[green]" + path + "[/green]" if found else "[red]Not Found[/red]"
             table.add_row(prefix + name, status)
+        return table
 
+    def _build_status_text(self) -> Text:
         browser, source, path, _ = self._get_selection()
         if browser:
             if source == "system":
@@ -189,45 +203,28 @@ class BrowserSelector:
                 display = f"playwright:{browser}"
         else:
             display = "none"
+        return Text.from_markup(f"[bold]Selected:[/bold] {display}", justify="center")
 
-        status_text = f"[bold]Selected:[/bold] {display}"
+    def _build_install_progress(self) -> Text:
+        return Text.from_markup(
+            f"[yellow]{self._install_progress}[/yellow]", justify="center"
+        )
 
-        help_text = (
+    def _build_uninstall_warning(self) -> Text:
+        return Text.from_markup(
+            "[red]Will uninstall all browsers on quit[/red]", justify="center"
+        )
+
+    def _build_help_text(self) -> Text:
+        return Text.from_markup(
             "[bold yellow]↑/↓[/bold yellow] Move  "
             "[bold yellow]Space[/bold yellow] Toggle  "
             "[bold yellow]i[/bold yellow] Install  "
             "[bold yellow]d[/bold yellow] Uninstall All  "
             "[bold yellow]c[/bold yellow] Cancel  "
-            "[bold yellow]q[/bold yellow] Quit"
+            "[bold yellow]q[/bold yellow] Quit",
+            justify="center",
         )
-
-        lines = [
-            table,
-            "",
-            Text.from_markup(status_text, justify="center"),
-            "",
-        ]
-
-        if self._install_progress:
-            lines.append(
-                Text.from_markup(
-                    f"[yellow]{self._install_progress}[/yellow]", justify="center"
-                )
-            )
-            lines.append("")
-
-        if self._will_uninstall_all:
-            lines.append(
-                Text.from_markup(
-                    "[red]Will uninstall all browsers on quit[/red]",
-                    justify="center",
-                )
-            )
-            lines.append("")
-
-        lines.append(Text.from_markup(help_text, justify="center"))
-
-        return Group(*lines)
 
     def _get_prefix(self, idx: int, is_selected: bool) -> str:
         cursor = "[bold green]>[/bold green] " if idx == self._cursor else "  "

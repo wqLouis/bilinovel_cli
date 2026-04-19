@@ -66,25 +66,37 @@ class Parser:
         for vol_elem in tree.xpath("//div[contains(@class, 'catalog-volume')]"):
             vol_text = vol_elem.text_content().strip()
             vol_title = vol_text.split("\n")[0].strip() if vol_text else ""
-            chapters = []
-            seen_urls = set()
-            for a_elem in vol_elem.xpath(".//a"):
-                href = a_elem.get("href", "").strip()
-                ch_title = a_elem.text_content().strip()
-                if not href or "/novel/" not in href:
-                    continue
-                if "vol_" in href:
-                    continue
-                if href in seen_urls:
-                    continue
-                if ch_title in ("", href.split("/")[-1].replace(".html", "")):
-                    ch_title = f"Chapter {len(chapters) + 1}"
-                seen_urls.add(href)
-                chapters.append(
-                    ChapterData(title=ch_title, num=len(chapters) + 1, url=href)
-                )
+            chapters = self._extract_chapters(vol_elem)
             volumes.append(VolumeData(title=vol_title, chapters=chapters))
         return volumes
+
+    def _extract_chapters(self, vol_elem) -> List[ChapterData]:
+        chapters = []
+        seen_urls = set()
+        for a_elem in vol_elem.xpath(".//a"):
+            href = a_elem.get("href", "").strip()
+            if not self._is_valid_chapter_url(href, seen_urls):
+                continue
+            ch_title = a_elem.text_content().strip()
+            ch_title = self._normalize_chapter_title(ch_title, href, len(chapters))
+            seen_urls.add(href)
+            chapters.append(
+                ChapterData(title=ch_title, num=len(chapters) + 1, url=href)
+            )
+        return chapters
+
+    def _is_valid_chapter_url(self, href: str, seen_urls: set) -> bool:
+        return bool(
+            href and "/novel/" in href and "vol_" not in href and href not in seen_urls
+        )
+
+    def _normalize_chapter_title(
+        self, title: str, href: str, chapter_count: int
+    ) -> str:
+        default_title = f"Chapter {chapter_count + 1}"
+        if not title or title == href.split("/")[-1].replace(".html", ""):
+            return default_title
+        return title
 
     def parse_chapter_content(self, page_content: str) -> str:
         tree = html.fromstring(page_content)
@@ -112,8 +124,6 @@ class Parser:
             replacement = rubbish_secret_map.get(char)
             if replacement is not None:
                 result.append(replacement)
-            elif char in chinese_punctuation:
-                result.append(char)
             else:
                 result.append(char)
         return "".join(result)
