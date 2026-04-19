@@ -7,7 +7,7 @@ from playwright.sync_api import sync_playwright
 from playwright_stealth import Stealth
 
 
-CLOUDFLARE_TITLE = "Access denied | www.bilinovelib.com used Cloudflare"
+CLOUDFLARE_TITLE = "Access denied"
 GOTO_TIMEOUT = 30000
 CLOUDCARE_WAIT = 5
 RETRY_WAIT = 2
@@ -164,13 +164,13 @@ class Fetcher:
             )
 
             page.wait_for_load_state("domcontentloaded")
-            page.wait_for_timeout(0.5)
+            page.wait_for_timeout(1.0)
 
             for _ in range(5):
                 result = page.evaluate(js)
                 if result and len(result) > 10:
                     return result
-                page.wait_for_timeout(random.uniform(0.2, 0.5))
+                page.wait_for_timeout(random.uniform(0.5, 1.0))
 
             return ""
 
@@ -181,8 +181,19 @@ class Fetcher:
             if next_btn.count() == 0:
                 break
             next_url = page.evaluate("ReadParams.url_next")
-            page.goto(next_url, wait_until="domcontentloaded")
-            page.wait_for_timeout(random.uniform(0.3, 0.5))
+            if not next_url.startswith("http"):
+                next_url = f"{self.BASE_URL}{next_url}"
+
+            page.goto(next_url, wait_until="domcontentloaded", timeout=GOTO_TIMEOUT)
+            page.wait_for_timeout(random.uniform(0.5, 1.0))
+
+            if CLOUDFLARE_TITLE in page.title():
+                time.sleep(CLOUDCARE_WAIT)
+                page.reload(wait_until="domcontentloaded", timeout=GOTO_TIMEOUT)
+                page.wait_for_timeout(random.uniform(0.5, 1.0))
+                if CLOUDFLARE_TITLE in page.title():
+                    break
+
             pages.append(extract())
 
         return pages

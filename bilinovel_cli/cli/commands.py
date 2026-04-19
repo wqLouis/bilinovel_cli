@@ -3,6 +3,7 @@
 import argparse
 import signal
 import sys
+import time
 from typing import Optional
 
 from bilinovel_cli.cli.console import ConsoleProgress
@@ -175,6 +176,7 @@ def _download_volumes(console, fetcher, parser, storage, novel, selected_indices
             storage.save_chapter(ch, vol_path)
             downloaded += 1
             console.update_chapter(downloaded, ch.title)
+            time.sleep(0.5)
 
     console.stop()
     console.print_success(f"Saved to: {novel_path}")
